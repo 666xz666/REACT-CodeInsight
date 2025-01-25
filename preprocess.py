@@ -4,7 +4,6 @@ import json
 from tqdm import tqdm
 from multiprocessing import Pool, cpu_count
 from functools import partial
-
 from config import COMMIT_INFO_PATH, FUNCTIONS_EXTRACTED_PATH, DATASET_PATH
 from ast_tool import extract_ast_seq
 import logging
@@ -91,28 +90,45 @@ def main():
     commit_csv_file_list = os.listdir(COMMIT_INFO_PATH)
 
     # 初始化一个空的DataFrame用于存储结果
-    result_df = pd.DataFrame(columns=['commit_id', 'diff', 'ast_seq', 'message'])
+    result_file = os.path.join(DATASET_PATH, 'dataset.csv')
+    if os.path.exists(result_file):
+        os.remove(result_file)  # 如果文件已存在，先删除
 
-    for commit_csv_file in commit_csv_file_list:
-        project_name = commit_csv_file.split('.')[0].split('_')[0]
+    pool = Pool(processes=cpu_count())  # 创建进程池，默认使用CPU核心数
+    try:
+        for commit_csv_file in commit_csv_file_list:
+            project_name = commit_csv_file.split('.')[0].split('_')[0]
 
-        commit_df = pd.read_csv(os.path.join(COMMIT_INFO_PATH, commit_csv_file),
-                                usecols=['commit_id', 'diff', 'message'])
+            commit_df = pd.read_csv(os.path.join(COMMIT_INFO_PATH, commit_csv_file),
+                                    usecols=['commit_id', 'diff', 'message'])
 
-        # 使用多进程处理
-        with Pool(processes=cpu_count()) as pool:
             # 使用partial函数固定部分参数
             partial_process_commit = partial(process_commit, project_name=project_name, dict=dict)
             results = list(tqdm(pool.imap(partial_process_commit, [row for _, row in commit_df.iterrows()]),
                                 total=commit_df.shape[0], desc=f"Processing {project_name}"))
 
-        # 将结果添加到DataFrame中
-        for result in results:
-            if result is not None:
-                result_df = result_df.append(result, ignore_index=True)
+            # 将结果逐行写入文件
+            with open(result_file, 'a', newline='', encoding='utf-8') as f:
+                for result in results:
+                    if result is not None:
+                        pd.DataFrame([result]).to_csv(f, header=f.tell() == 0, index=False)
 
-    result_df.to_csv(os.path.join(DATASET_PATH, 'dataset.csv'), index=False)
-    logger.info(f"Result saved to {os.path.join(DATASET_PATH, 'dataset.csv')}")
+        logger.info(f"Result saved to {result_file}")
+    except (KeyboardInterrupt, SystemExit) as e:
+        logger.error(f"Program interrupted by user: {e}")
+        if pool:
+            pool.terminate()  # 强制终止所有子进程
+            pool.join()  # 等待所有子进程退出
+    except Exception as e:
+        logger.error(f"An unexpected error occurred: {e}")
+        if pool:
+            pool.terminate()  # 强制终止所有子进程
+            pool.join()  # 等待所有子进程退出
+    finally:
+        if pool:
+            pool.close()  # 关闭进程池，不再接受新任务
+            pool.join()  # 等待所有子进程完成
+        logger.info(f"Result saved to {result_file}")
 
 
 if __name__ == '__main__':
