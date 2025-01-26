@@ -11,7 +11,6 @@ import logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-
 def create_function_dict():
     """
     创建每个提交对应的函数文件名的字典，并保存到json文件中
@@ -39,7 +38,6 @@ def create_function_dict():
 
     logger.info('Function dictionary created at ' + os.path.join(DATASET_PATH, 'dict.json'))
 
-
 def get_code_from_file(file_path):
     """
     从文件中读取代码
@@ -47,7 +45,6 @@ def get_code_from_file(file_path):
     with open(file_path, 'r', encoding='utf-8') as f:
         code = f.read()
     return code
-
 
 def process_commit(row, project_name, dict):
     """
@@ -77,6 +74,34 @@ def process_commit(row, project_name, dict):
         # logger.error(e)
         return None
 
+def process_project(project_name, commit_csv_file, dict):
+    """
+    处理单个项目
+    """
+    try:
+        commit_df = pd.read_csv(os.path.join(COMMIT_INFO_PATH, commit_csv_file),
+                                usecols=['commit_id', 'diff', 'message'])
+
+        # 使用partial函数固定部分参数
+        partial_process_commit = partial(process_commit, project_name=project_name, dict=dict)
+        results = list(tqdm(map(partial_process_commit, [row for _, row in commit_df.iterrows()]),
+                            total=commit_df.shape[0], desc=f"Processing {project_name}"))
+
+
+        result_file = os.path.join(DATASET_PATH, f"{project_name}_commits_ast.csv")
+        # 将结果逐行写入文件
+        with open(result_file, 'a', newline='', encoding='utf-8') as f:
+            for result in results:
+                if result is not None:
+                    pd.DataFrame([result]).to_csv(f, header=f.tell() == 0, index=False)
+
+        logger.info(f"Processed {project_name}")
+        logger.info(f"Result saved to {result_file}")
+        return project_name
+    except Exception as e:
+        # logger.error(f"Error processing project {project_name}: {e}")
+        return None
+
 
 def main():
     processed_commits = []
@@ -96,61 +121,35 @@ def main():
 
     commit_csv_file_list = os.listdir(COMMIT_INFO_PATH)
 
-    result_file = os.path.join(DATASET_PATH, 'dataset.csv')
 
-    pool = Pool(processes=cpu_count())  # 创建进程池，默认使用CPU核心数
+    # 创建进程池
+    pool = Pool(processes=cpu_count())
+
     try:
-        for commit_csv_file in commit_csv_file_list:
-            project_name = commit_csv_file.split('.')[0].split('_')[0]
+        # 提取项目名称列表
+        project_names = [commit_csv_file.split('.')[0].split('_')[0] for commit_csv_file in commit_csv_file_list]
+        # 去重并过滤已处理的项目
+        project_names = list(set(project_names) - set(processed_commits))
 
-            if project_name in processed_commits:
-                logger.info(f"Skip {project_name} because it has been processed")
-                continue
+        # 使用进程池并行处理多个项目
+        partial_process_project = partial(process_project, dict=dict)
+        project_args = [(project_name, f"{project_name}_commits.csv") for project_name in project_names]
+        processed_projects = pool.starmap(partial_process_project, project_args)
 
-            commit_df = pd.read_csv(os.path.join(COMMIT_INFO_PATH, commit_csv_file),
-                                    usecols=['commit_id', 'diff', 'message'])
-
-            # 使用partial函数固定部分参数
-            partial_process_commit = partial(process_commit, project_name=project_name, dict=dict)
-            results = list(tqdm(pool.imap(partial_process_commit, [row for _, row in commit_df.iterrows()]),
-                                total=commit_df.shape[0], desc=f"Processing {project_name}"))
-
-            # 将结果逐行写入文件
-            with open(result_file, 'a', newline='', encoding='utf-8') as f:
-                for result in results:
-                    if result is not None:
-                        pd.DataFrame([result]).to_csv(f, header=f.tell() == 0, index=False)
-
-            # 记录已处理的项目
-            processed_commits.append(project_name)
-            logger.info(f"Processed {project_name}")
-
-            logger.info(f"Result saved to {result_file}")
+        # 更新已处理的项目列表
+        processed_commits.extend([project for project in processed_projects if project is not None])
+        logger.info(f"Processed projects: {processed_commits}")
     except (KeyboardInterrupt, SystemExit) as e:
         logger.error(f"Program interrupted by user: {e}")
-        # if pool:
-        #     pool.terminate()  # 强制终止所有子进程
-        #     pool.join()  # 等待所有子进程退出
-        # # 保存已处理的项目
-        # with open(os.path.join(DATASET_PATH, 'processed_commits.json'), 'w') as f:
-        #     json.dump({'processed_commits': processed_commits}, f, indent=4, ensure_ascii=False)
     except Exception as e:
         logger.error(f"An unexpected error occurred: {e}")
-        # if pool:
-        #     pool.terminate()  # 强制终止所有子进程
-        #     pool.join()  # 等待所有子进程退出
-        # # 保存已处理的项目
-        # with open(os.path.join(DATASET_PATH, 'processed_commits.json'), 'w') as f:
-        #     json.dump({'processed_commits': processed_commits}, f, indent=4, ensure_ascii=False)
     finally:
         if pool:
             pool.close()  # 关闭进程池，不再接受新任务
             pool.join()  # 等待所有子进程完成
-        logger.info(f"Result saved to {result_file}")
         # 保存已处理的项目
         with open(os.path.join(DATASET_PATH, 'processed_commits.json'), 'w') as f:
             json.dump({'processed_commits': processed_commits}, f, indent=4, ensure_ascii=False)
-
 
 if __name__ == '__main__':
     main()
