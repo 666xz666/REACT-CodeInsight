@@ -131,6 +131,17 @@ def main():
         # 去重并过滤已处理的项目
         project_names = list(set(project_names) - set(processed_commits))
 
+        tmp = []
+        for project_name in project_names:
+            if os.path.exists(os.path.join(DATASET_PATH, f"{project_name}_commits_ast.csv")):
+                processed_commits.append(project_name)
+                logger.info(f"{project_name} already processed, skip...")
+                continue
+            else:
+                tmp.append(project_name)
+        project_names = tmp
+
+
         # 使用进程池并行处理多个项目
         partial_process_project = partial(process_project, dict=dict)
         project_args = [(project_name, f"{project_name}_commits.csv") for project_name in project_names]
