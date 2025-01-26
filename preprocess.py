@@ -79,6 +79,13 @@ def process_commit(row, project_name, dict):
 
 
 def main():
+    processed_commits = []
+    if os.path.exists(os.path.join(DATASET_PATH, 'processed_commits.json')):
+        logger.info('Read processed commits from file...')
+        with open(os.path.join(DATASET_PATH, 'processed_commits.json'), 'r') as f:
+            processed_commits = json.load(f)['processed_commits']
+            logger.info(f"Processed commits: {processed_commits}")
+
     if not os.path.exists(os.path.join(DATASET_PATH, 'dict.json')):
         create_function_dict()
     else:
@@ -89,15 +96,16 @@ def main():
 
     commit_csv_file_list = os.listdir(COMMIT_INFO_PATH)
 
-    # 初始化一个空的DataFrame用于存储结果
     result_file = os.path.join(DATASET_PATH, 'dataset.csv')
-    if os.path.exists(result_file):
-        os.remove(result_file)  # 如果文件已存在，先删除
 
     pool = Pool(processes=cpu_count())  # 创建进程池，默认使用CPU核心数
     try:
         for commit_csv_file in commit_csv_file_list:
             project_name = commit_csv_file.split('.')[0].split('_')[0]
+
+            if project_name in processed_commits:
+                logger.info(f"Skip {project_name} because it has been processed")
+                continue
 
             commit_df = pd.read_csv(os.path.join(COMMIT_INFO_PATH, commit_csv_file),
                                     usecols=['commit_id', 'diff', 'message'])
@@ -113,22 +121,35 @@ def main():
                     if result is not None:
                         pd.DataFrame([result]).to_csv(f, header=f.tell() == 0, index=False)
 
-        logger.info(f"Result saved to {result_file}")
+            # 记录已处理的项目
+            processed_commits.append(project_name)
+            logger.info(f"Processed {project_name}")
+
+            logger.info(f"Result saved to {result_file}")
     except (KeyboardInterrupt, SystemExit) as e:
         logger.error(f"Program interrupted by user: {e}")
         if pool:
             pool.terminate()  # 强制终止所有子进程
             pool.join()  # 等待所有子进程退出
+        # 保存已处理的项目
+        with open(os.path.join(DATASET_PATH, 'processed_commits.json'), 'w') as f:
+            json.dump({'processed_commits': processed_commits}, f, indent=4, ensure_ascii=False)
     except Exception as e:
         logger.error(f"An unexpected error occurred: {e}")
         if pool:
             pool.terminate()  # 强制终止所有子进程
             pool.join()  # 等待所有子进程退出
+        # 保存已处理的项目
+        with open(os.path.join(DATASET_PATH, 'processed_commits.json'), 'w') as f:
+            json.dump({'processed_commits': processed_commits}, f, indent=4, ensure_ascii=False)
     finally:
         if pool:
             pool.close()  # 关闭进程池，不再接受新任务
             pool.join()  # 等待所有子进程完成
         logger.info(f"Result saved to {result_file}")
+        # 保存已处理的项目
+        with open(os.path.join(DATASET_PATH, 'processed_commits.json'), 'w') as f:
+            json.dump({'processed_commits': processed_commits}, f, indent=4, ensure_ascii=False)
 
 
 if __name__ == '__main__':
