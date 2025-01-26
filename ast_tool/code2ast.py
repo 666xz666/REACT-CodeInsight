@@ -1,15 +1,6 @@
 #!/usr/bin/python
 # -*- coding: UTF-8 -*-
-
-import os, sys
-import chardet
-import random
-from stanfordcorenlp import StanfordCoreNLP
-from nltk.stem import WordNetLemmatizer
-import nltk
 import javalang
-import jieba
-
 
 
 def get_ast(code):
