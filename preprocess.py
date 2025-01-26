@@ -128,20 +128,20 @@ def main():
             logger.info(f"Result saved to {result_file}")
     except (KeyboardInterrupt, SystemExit) as e:
         logger.error(f"Program interrupted by user: {e}")
-        if pool:
-            pool.terminate()  # 强制终止所有子进程
-            pool.join()  # 等待所有子进程退出
-        # 保存已处理的项目
-        with open(os.path.join(DATASET_PATH, 'processed_commits.json'), 'w') as f:
-            json.dump({'processed_commits': processed_commits}, f, indent=4, ensure_ascii=False)
+        # if pool:
+        #     pool.terminate()  # 强制终止所有子进程
+        #     pool.join()  # 等待所有子进程退出
+        # # 保存已处理的项目
+        # with open(os.path.join(DATASET_PATH, 'processed_commits.json'), 'w') as f:
+        #     json.dump({'processed_commits': processed_commits}, f, indent=4, ensure_ascii=False)
     except Exception as e:
         logger.error(f"An unexpected error occurred: {e}")
-        if pool:
-            pool.terminate()  # 强制终止所有子进程
-            pool.join()  # 等待所有子进程退出
-        # 保存已处理的项目
-        with open(os.path.join(DATASET_PATH, 'processed_commits.json'), 'w') as f:
-            json.dump({'processed_commits': processed_commits}, f, indent=4, ensure_ascii=False)
+        # if pool:
+        #     pool.terminate()  # 强制终止所有子进程
+        #     pool.join()  # 等待所有子进程退出
+        # # 保存已处理的项目
+        # with open(os.path.join(DATASET_PATH, 'processed_commits.json'), 'w') as f:
+        #     json.dump({'processed_commits': processed_commits}, f, indent=4, ensure_ascii=False)
     finally:
         if pool:
             pool.close()  # 关闭进程池，不再接受新任务
