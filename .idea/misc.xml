@@ -3,5 +3,5 @@
   <component name="Black">
     <option name="sdkName" value="es_gen" />
   </component>
-  <component name="ProjectRootManager" version="2" project-jdk-name="es_gen" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="react-codeinsight" project-jdk-type="Python SDK" />
 </project>
