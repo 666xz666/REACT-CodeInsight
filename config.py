@@ -14,6 +14,8 @@ DIFF_TOKENIZER_MODEL = 'plbart'
 
 TOKENIZER_PATH = r'D:\xz\科研\commit message generation\RAG\REACT-replication\data\tokenizers'
 
+MODEL_TYPE_LIST = ['t5', 'plbart', 'others']
+
 AST_MODEL_TYPE = 't5'
 DIFF_MODEL_TYPE = 'plbart'
 
