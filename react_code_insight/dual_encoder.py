@@ -142,8 +142,8 @@ if __name__ == '__main__':
                  "StatementExpression TryStatement ReturnStatement")
 
     # 获取编码
-    diff_encoded = dual_encoder.encode_diff(diff_text)
-    ast_encoded = dual_encoder.encode_ast(ast_edits)
+    # diff_encoded = dual_encoder.encode_diff(diff_text)
+    # ast_encoded = dual_encoder.encode_ast(ast_edits)
 
     # 多模态融合
     fused_output = dual_encoder(diff_text, ast_edits)
