@@ -19,6 +19,8 @@ MODEL_TYPE_LIST = ['t5', 'plbart', 'others']
 AST_MODEL_TYPE = 't5'
 DIFF_MODEL_TYPE = 'plbart'
 
+MAX_LEN = 512
+
 # 保存数据集路径
 DATASET_PATH = './datasets'
 if not os.path.exists(DATASET_PATH):

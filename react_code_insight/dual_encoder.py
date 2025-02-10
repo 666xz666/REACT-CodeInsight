@@ -18,6 +18,7 @@ from config import (
 )
 from torch_multi_head_attention import MultiHeadAttention
 import logging
+import os
 
 
 def get_tokenizer(model_name, model_type):
@@ -60,10 +61,10 @@ class DualEncoder(nn.Module):
         super(DualEncoder, self).__init__()
 
         logging.info("DualEncoder model initializing...")
-        # # 初始化diff编码器
+        # 初始化 diff 编码器
         self.diff_encoder = get_encoder(diff_model_name, diff_model_type)
         self.diff_tokenizer = get_tokenizer(diff_model_name, diff_model_type)
-        # # 初始化AST编码器
+        # 初始化 AST 编码器
         self.ast_encoder = get_encoder(ast_model_name, ast_model_type)
         self.ast_tokenizer = get_tokenizer(ast_model_name, ast_model_type)
         logging.info("DualEncoder model initialized.")
@@ -85,30 +86,37 @@ class DualEncoder(nn.Module):
             self.mlp.to(self.device)
             self.self_attention.to(self.device)
 
-    def encode_diff(self, diff_text):
-        # 对diff文本进行编码
-        diff_inputs = self.diff_tokenizer(
-            diff_text, return_tensors='pt',
+    def preprocess_text(self, text, tokenizer, max_length):
+        # 使用 Tokenizer 对输入文本进行编码
+        inputs = tokenizer(
+            text, return_tensors='pt',
             padding=True, truncation=True,
-            max_length=self.max_length,
+            max_length=max_length,
         )
+        return inputs
+
+    def encode_diff(self, diff_text):
+        # 对 diff 文本进行预处理
+        diff_inputs = self.preprocess_text(diff_text, self.diff_tokenizer, self.max_length)
         diff_inputs = {k: v.to(self.device) for k, v in diff_inputs.items()}
+
+        # 检查 token ID 范围
+        assert diff_inputs['input_ids'].max() < self.diff_encoder.config.vocab_size, "Token ID out of range in diff text"
+
+        # 获取 diff 编码
         diff_outputs = self.diff_encoder(**diff_inputs)
         return diff_outputs.last_hidden_state
 
     def encode_ast(self, ast_edits):
-        # 对AST编辑序列进行编码
-        ast_inputs = self.ast_tokenizer(
-            ast_edits, return_tensors='pt',
-            padding=True, truncation=True,
-            max_length=self.max_length,
-        )
+        # 对 AST 编辑序列进行预处理
+        ast_inputs = self.preprocess_text(ast_edits, self.ast_tokenizer, self.max_length)
         ast_inputs = {k: v.to(self.device) for k, v in ast_inputs.items()}
+        # 获取 AST 编码
         ast_outputs = self.ast_encoder(**ast_inputs)
         return ast_outputs.last_hidden_state
 
     def forward(self, diff_text, ast_edits):
-        # 分别获取diff和AST的编码
+        # 分别获取 diff 和 AST 的编码
         diff_encoded = self.encode_diff(diff_text)
         ast_encoded = self.encode_ast(ast_edits)
 
@@ -117,9 +125,9 @@ class DualEncoder(nn.Module):
         seq_length = min(diff_encoded.size(1), ast_encoded.size(1))
         diff_encoded = diff_encoded[:, :seq_length]
         ast_encoded = ast_encoded[:, :seq_length]
-        combined = torch.cat((diff_encoded, ast_encoded), dim=-1)  # 假设batch维度为0
+        combined = torch.cat((diff_encoded, ast_encoded), dim=-1)  # 假设 batch 维度为 0
 
-        # 使用MLP进行融合
+        # 使用 MLP 进行融合
         fused_output_mlp = self.mlp(combined)
 
         # 使用自注意力层进行特征选择和降维
@@ -138,8 +146,9 @@ if __name__ == '__main__':
     # 假设的diff文本和AST编辑序列
     diff_text = ("diff --git a/file.py b/file.py\nindex 1234..5678 100644\n--- a/file.py\n+++ b/file.py\n@@ -1,3 +1,"
                  "3 @@\n print('Hello')\n-print('World')\n+print('Transformer')")
-    ast_edits = ("MethodDeclaration LocalVariableDeclaration StatementExpression +LocalVariableDeclaration "
-                 "StatementExpression TryStatement ReturnStatement")
+    ast_edits = ("MethodDeclaration +LocalVariableDeclaration +LocalVariableDeclaration +LocalVariableDeclaration +LocalVariableDeclaration +LocalVariableDeclaration +LocalVariableDeclaration +WhileStatement +BlockStatement +LocalVariableDeclaration +IfStatement +BlockStatement StatementExpression StatementExpression +LocalVariableDeclaration +ForStatement +BlockStatement +LocalVariableDeclaration +IfStatement +BlockStatement StatementExpression StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +LocalVariableDeclaration +StatementExpression +StatementExpression +StatementExpression +StatementExpression +IfStatement +BlockStatement +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +LocalVariableDeclaration +StatementExpression +StatementExpression +StatementExpression +StatementExpression +LocalVariableDeclaration +StatementExpression +StatementExpression +StatementExpression +StatementExpression +IfStatement +BlockStatement +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +LocalVariableDeclaration +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +IfStatement +BlockStatement +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +LocalVariableDeclaration +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +IfStatement +BlockStatement +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +LocalVariableDeclaration +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +IfStatement +BlockStatement +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +LocalVariableDeclaration +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +IfStatement +BlockStatement +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +LocalVariableDeclaration +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +IfStatement +BlockStatement +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +LocalVariableDeclaration +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +ForStatement +BlockStatement +StatementExpression +LocalVariableDeclaration +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +ForStatement +BlockStatement +LocalVariableDeclaration +IfStatement +BlockStatement +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +LocalVariableDeclaration +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +LocalVariableDeclaration +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +IfStatement +BlockStatement +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +LocalVariableDeclaration +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +IfStatement +BlockStatement +StatementExpression +IfStatement +BlockStatement +StatementExpression +IfStatement +BlockStatement +StatementExpression +IfStatement +BlockStatement +StatementExpression +IfStatement +BlockStatement +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +LocalVariableDeclaration +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +IfStatement +BlockStatement +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +IfStatement +BlockStatement +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +LocalVariableDeclaration +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +StatementExpression +ForStatement +BlockStatement +StatementExpression +StatementExpression")
+
+    ast_edits = ast_edits[:512]
 
     # 获取编码
     # diff_encoded = dual_encoder.encode_diff(diff_text)
