@@ -122,7 +122,10 @@ def main():
     #     # 调用 encode 函数处理文件
     #     encode(file_path, output_folder)
 
-    merge_csv_files("./datasets/encoder_datasets", "./datasets/source.csv")
+    source_path = "./datasets/source.csv"
+    # merge_csv_files("./datasets/encoder_datasets", "./datasets/source.csv")
+    
+    
 
 
 if __name__ == '__main__':
