@@ -1,5 +1,0 @@
-diff,ast_seq,feature_vector,message
-This is the first diff,AST1,"0.1,0.2,0.3",Message1
-This is the second diff,AST2,"0.4,0.5,0.6",Message2
-This is the third diff,AST3,"0.7,0.8,0.9",Message3
-This is the fourth diff,AST4,"1.0,1.1,1.2",Message4
