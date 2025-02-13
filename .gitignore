@@ -3,3 +3,5 @@ datasets
 other_statement.txt
 *.log
 *.zip
+.vscode
+.ipynb_checkpoints
