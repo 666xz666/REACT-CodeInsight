@@ -16,11 +16,13 @@ from org.apache.lucene.search.similarities import BM25Similarity
 from org.apache.lucene.store import NIOFSDirectory
 from java.nio.file import Paths
 
+from config import DATASET_PATH
+
 tqdm.pandas()
 
 
 class EnhancedRetriever:
-    def __init__(self, source_file, index_dir='index'):
+    def __init__(self, source_file, index_dir=os.path.join(DATASET_PATH, 'index')):
         self.source_data = pd.read_csv(source_file)
 
         def string_to_numpy(s):
@@ -248,64 +250,64 @@ class EnhancedRetriever:
 
 
 if __name__ == '__main__':
-    # # 测试数据
-    # test_data = {
-    #     'diff': [
-    #         'This is the first diff/////////////////////////////////////////////',
-    #         'This is the second diff',
-    #         'This is the third diff',
-    #         'This is the fourth diff'
-    #     ],
-    #     'ast_seq': [
-    #         'AST1///////////////////////////', 'AST2', 'AST3', 'AST4'
-    #     ],
-    #     'feature_vector': [
-    #         [[0.4, 0.5, 0.6], [0.4, 0.5, 0.6], [0.4, 0.5, 0.6]], [[0.7, 0.8, 0.9], [0.7, 0.8, 0.9], [0.7, 0.8, 0.9]],
-    #         [[0.7, 0.8, 0.9], [0.7, 0.8, 0.9], [0.7, 0.8, 0.9]], [[1.0, 1.1, 1.2], [1.0, 1.1, 1.2], [1.0, 1.1, 1.2]]
-    #     ],
-    #     'message': [
-    #         'Message1/////////////////////////////', 'Message2', 'Message3', 'Message4'
-    #     ]
-    # }
-    #
-    # # 将测试数据保存为 CSV 文件
-    # test_csv_file = 'test_data.csv'
-    # pd.DataFrame(test_data).to_csv(test_csv_file, index=False)
-    #
-    # # 创建 EnhancedRetriever 实例
-    # index_dir = 'test_index'
-    # retriever = EnhancedRetriever(test_csv_file, index_dir=index_dir)
-    #
-    # # 假设你已经生成了查询嵌入向量
-    # query_embeddings = np.array([
-    #     [[0.7, 0.8, 0.9], [0.7, 0.8, 0.9], [0.7, 0.8, 0.9]], [[0.7, 0.8, 0.9], [0.7, 0.8, 0.9], [0.7, 0.8, 0.9]],
-    #     [[1.0, 1.1, 1.2], [1.0, 1.1, 1.2], [1.0, 1.1, 1.2]]
-    # ])
-    #
-    # # 测试 BM25 检索和余弦相似度检索
-    # query_diffs = [
-    #     'This is the first diff',
-    #     'This is the second diff',
-    #     'This is a new diff'
-    # ]
-    #
-    # query_ast_seqs = [
-    #     'AST1',
-    #     'AST2',
-    #     'AST5'
-    # ]
-    #
-    # # 计算 BM25 得分矩阵
-    # bm25_scores_matrix = retriever.calculate_bm25(query_diffs, query_ast_seqs)
-    #
-    # # 打印 BM25 得分矩阵
-    # print("BM25 Scores Matrix:")
-    # print(bm25_scores_matrix)
-    #
-    # # 执行检索
-    # results = retriever.retrieve(query_diffs, query_ast_seqs, query_embeddings, bm25=True, cosine=True)
-    # print("Retrieval Results:")
-    # print(results)
+    # 测试数据
+    test_data = {
+        'diff': [
+            'This is the first diff/////////////////////////////////////////////',
+            'This is the second diff',
+            'This is the third diff',
+            'This is the fourth diff'
+        ],
+        'ast_seq': [
+            'AST1///////////////////////////', 'AST2', 'AST3', 'AST4'
+        ],
+        'feature_vector': [
+            [[0.4, 0.5, 0.6], [0.4, 0.5, 0.6], [0.4, 0.5, 0.6]], [[0.7, 0.8, 0.9], [0.7, 0.8, 0.9], [0.7, 0.8, 0.9]],
+            [[0.7, 0.8, 0.9], [0.7, 0.8, 0.9], [0.7, 0.8, 0.9]], [[1.0, 1.1, 1.2], [1.0, 1.1, 1.2], [1.0, 1.1, 1.2]]
+        ],
+        'message': [
+            'Message1/////////////////////////////', 'Message2', 'Message3', 'Message4'
+        ]
+    }
 
-    from config import DATASET_PATH
-    Retriever = EnhancedRetriever(os.path.join(DATASET_PATH, 'splitted_data/test.csv'), index_dir='data/index')
+    # 将测试数据保存为 CSV 文件
+    test_csv_file = 'test_data.csv'
+    pd.DataFrame(test_data).to_csv(test_csv_file, index=False)
+
+    # 创建 EnhancedRetriever 实例
+    index_dir = 'test_index'
+    retriever = EnhancedRetriever(test_csv_file, index_dir=index_dir)
+
+    # 假设你已经生成了查询嵌入向量
+    query_embeddings = np.array([
+        [[0.7, 0.8, 0.9], [0.7, 0.8, 0.9], [0.7, 0.8, 0.9]], [[0.7, 0.8, 0.9], [0.7, 0.8, 0.9], [0.7, 0.8, 0.9]],
+        [[1.0, 1.1, 1.2], [1.0, 1.1, 1.2], [1.0, 1.1, 1.2]]
+    ])
+
+    # 测试 BM25 检索和余弦相似度检索
+    query_diffs = [
+        'This is the first diff',
+        'This is the second diff',
+        'This is a new diff'
+    ]
+
+    query_ast_seqs = [
+        'AST1',
+        'AST2',
+        'AST5'
+    ]
+
+    # 计算 BM25 得分矩阵
+    bm25_scores_matrix = retriever.calculate_bm25(query_diffs, query_ast_seqs)
+
+    # 打印 BM25 得分矩阵
+    print("BM25 Scores Matrix:")
+    print(bm25_scores_matrix)
+
+    # 执行检索
+    results = retriever.retrieve(query_diffs, query_ast_seqs, query_embeddings, bm25=True, cosine=True)
+    print("Retrieval Results:")
+    print(results)
+
+    # from config import DATASET_PATH
+    # Retriever = EnhancedRetriever(os.path.join(DATASET_PATH, 'splitted_data/test.csv'), index_dir='data/index')

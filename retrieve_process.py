@@ -1,7 +1,7 @@
 import os
 import pandas as pd
 from config import DATASET_PATH, MAX_LEN
-from react_code_insight import get_embedding_batch, EnhancedRetriever
+from react_code_insight import get_embedding_batch, EnhancedRetriever, load_embedding_model
 import logging
 import torch
 import numpy as np
@@ -19,7 +19,7 @@ def merge_csv_files(input_folder, output_file):
 
     # 检查是否有 CSV 文件
     if not csv_files:
-        print("未找到任何 CSV 文件。")
+        logging.info("未找到任何 CSV 文件。")
         return
 
     # 打开输出文件
@@ -32,9 +32,9 @@ def merge_csv_files(input_folder, output_file):
             for chunk in pd.read_csv(file_path, chunksize=chunk_size):
                 # 将分块数据写入输出文件
                 chunk.to_csv(output_csv, index=False, header=(file == csv_files[0]), mode='a')
-                print(f"已处理文件 {file}")
+                logging.info(f"已处理文件 {file}")
 
-    print(f"所有 CSV 文件已成功合并并保存到 {output_file}")
+    logging.info(f"所有 CSV 文件已成功合并并保存到 {output_file}")
 
 
 def encode(file_path, output_folder, batch_size=32):
@@ -45,6 +45,7 @@ def encode(file_path, output_folder, batch_size=32):
     :param batch_size: 每个批次的大小
     :return:
     """
+
     # 读取 CSV 文件
     df = pd.read_csv(file_path)
 
@@ -85,7 +86,7 @@ def encode(file_path, output_folder, batch_size=32):
 
     # 保存更新后的 DataFrame 到 CSV 文件
     df.to_csv(output_file, index=False)
-    print(f"特征向量已成功添加到 {output_file}")
+    logging.info(f"特征向量已成功添加到 {output_file}")
 
 
 def split_csv_data(file_path, train_size, valid_size, test_size, output_dir=".", random_state=42):
@@ -131,12 +132,12 @@ def split_csv_data(file_path, train_size, valid_size, test_size, output_dir=".",
                         rag_data.append(row)
                 pbar.update(chunk.memory_usage(deep=True).sum())
     except Exception as e:
-        print(f"加载文件时出错: {e}")
+        logging.info(f"加载文件时出错: {e}")
         return
 
     # 检查数据量是否足够
     if len(train_data) < train_size or len(valid_data) < valid_size or len(test_data) < test_size:
-        print("错误：数据量不足以满足划分需求。")
+        logging.info("错误：数据量不足以满足划分需求。")
         return
 
     # 分块保存数据集
@@ -155,12 +156,91 @@ def split_csv_data(file_path, train_size, valid_size, test_size, output_dir=".",
     save_data(test_data, "test.csv")
     save_data(rag_data, "rag_knowledge_base.csv")
 
-    print(f"数据划分完成！文件已保存到 {output_dir} 目录。")
-    print(f"训练集大小: {len(train_data)}")
-    print(f"验证集大小: {len(valid_data)}")
-    print(f"测试集大小: {len(test_data)}")
-    print(f"RAG 知识库大小: {len(rag_data)}")
+    logging.info(f"数据划分完成！文件已保存到 {output_dir} 目录。")
+    logging.info(f"训练集大小: {len(train_data)}")
+    logging.info(f"验证集大小: {len(valid_data)}")
+    logging.info(f"测试集大小: {len(test_data)}")
+    logging.info(f"RAG 知识库大小: {len(rag_data)}")
 
+
+def string_to_numpy(s):
+    """安全地将字符串转换为numpy数组"""
+    import ast
+    try:
+        # 处理空值
+        if pd.isna(s) or s.strip() in ['', 'nan', 'None']:
+            return np.zeros((1, 256), dtype=np.float32)  # 返回默认向量
+
+        # 清洗字符串（示例格式："[[0.1,0.2],[0.3,0.4]]"）
+        s = s.replace('\n', '').replace(' ', '')  # 移除换行和空格
+        if not s.startswith('['):
+            s = '[' + s + ']'  # 包裹缺失的括号
+        return np.array(ast.literal_eval(s), dtype=np.float32)
+    except Exception as e:
+        print(f"转换失败: {str(e)} | 原始字符串: {s[:50]}...")
+        raise
+
+
+retriever = None
+
+
+def retrieve_augment(input_path, output_path, batch_size=32):
+    """
+    对输入数据集进行检索增强处理
+
+    参数:
+        input_path (str): 输入文件路径
+        output_path (str): 输出文件路径
+        batch_size (int): 处理批次大小
+    """
+    global retriever
+
+    # 确保输出目录存在
+    output_dir = os.path.dirname(output_path)
+    os.makedirs(output_dir, exist_ok=True)
+
+    # 检查输入文件是否存在
+    if not os.path.exists(input_path):
+        raise FileNotFoundError(f"输入文件 {input_path} 不存在")
+
+    try:
+        # 分块读取数据
+        total_rows = sum(1 for _ in open(input_path, 'r')) - 1  # 估算总行数
+        reader = pd.read_csv(input_path, chunksize=batch_size)
+
+        first_chunk = True
+        processed_rows = 0
+
+        for chunk in tqdm(reader, total=total_rows // batch_size + 1, desc=f"处理 {os.path.basename(input_path)}"):
+            # 数据预处理
+            diffs = chunk['diff'].fillna('').tolist()
+            ast_seqs = chunk['ast_seq'].fillna('').tolist()
+
+            # 转换特征向量
+            feature_vectors = []
+            for vec_str in chunk['feature_vector']:
+                feature_vectors.append(string_to_numpy(vec_str))
+            query_embeddings = np.array(feature_vectors)
+
+            # 执行检索
+            results_df = retriever.retrieve(diffs, ast_seqs, query_embeddings)
+
+            # 合并结果
+            chunk = chunk.assign(
+                retrieved_diff=results_df['retrieved_diff'],
+                retrieved_ast_seq=results_df['retrieved_ast_seq'],
+                retrieved_message=results_df['retrieved_message']
+            )
+
+            # 保存结果
+            chunk.to_csv(output_path, mode='a', header=first_chunk, index=False)
+            first_chunk = False
+            processed_rows += len(chunk)
+            logging.info(f"已处理 {processed_rows}/{total_rows} 行")
+
+    except Exception as e:
+        logging.error(f"处理文件 {input_path} 时发生错误: {str(e)}")
+        raise
 
 
 def main():
@@ -175,12 +255,14 @@ def main():
     logging.info(f"输出文件夹: {output_folder}")
 
     logging.info("开始编码数据...")
+    #################### load_embedding_model()
+
     # 获取文件夹中所有 CSV 文件
     csv_files = [f for f in os.listdir(input_folder) if f.endswith('.csv')]
 
     # 检查是否有 CSV 文件
     if not csv_files:
-        print("未找到任何 CSV 文件。")
+        logging.info("未找到任何 CSV 文件。")
         return
 
     # 逐个处理每个 CSV 文件
@@ -190,7 +272,7 @@ def main():
 
         # 检查输出文件是否已经存在
         if os.path.exists(output_file):
-            print(f"输出文件 {output_file} 已经存在，跳过处理。")
+            logging.info(f"输出文件 {output_file} 已经存在，跳过处理。")
             continue
 
         # 调用 encode 函数处理文件
@@ -201,10 +283,10 @@ def main():
     merged_path = os.path.join(DATASET_PATH, 'merged/source.csv')
 
     # 合并数据
+    logging.info(f"开始合并数据...")
     if os.path.exists(merged_path):
         logging.warning(f"输出文件 {merged_path} 已经存在，跳过处理。")
     else:
-        logging.info(f"开始合并数据...")
         merge_csv_files(output_folder, merged_path)
         logging.info(f"合并数据完成！")
 
@@ -223,6 +305,14 @@ def main():
             random_state=114514  # 随机种子
         )
 
+    # 检索增强
+    logging.info(f"开始检索增强...")
+    global retriever
+    retriever = EnhancedRetriever(os.path.join(DATASET_PATH, 'splitted_data/rag_knowledge_base.csv'))
+
+    test_path = os.path.join(DATASET_PATH, 'splitted_data/test.csv')
+    test_output_path = os.path.join(DATASET_PATH, 'retrieved_data/test_retrieved.csv.')
+    retrieve_augment(test_path, test_output_path)
 
 if __name__ == '__main__':
     main()
