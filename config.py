@@ -24,6 +24,6 @@ EMBEDDING_PATH = r"D:\xz\科研\commit message generation\Code\datasets\models\c
 MAX_LEN = 512
 
 # 保存数据集路径
-DATASET_PATH = './datasets'
+DATASET_PATH = r"D:\xz\科研\commit message generation\Code\datasets"
 if not os.path.exists(DATASET_PATH):
     os.makedirs(DATASET_PATH)

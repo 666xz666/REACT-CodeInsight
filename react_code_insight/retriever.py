@@ -107,13 +107,13 @@ class EnhancedRetriever:
         normalized_scores_matrix = np.apply_along_axis(self.normalize_bm25_scores, 1, scores_matrix)
 
         return normalized_scores_matrix
-    
+
     def calculate_cosine_sim(self, query_embeddings):
         # 将查询嵌入向量和源数据的特征向量展平为一维向量
         source_embeddings = np.stack(self.source_data['feature_vector'].values)
         source_embeddings_flat = source_embeddings.reshape(source_embeddings.shape[0], -1)
         query_embeddings_flat = query_embeddings.reshape(query_embeddings.shape[0], -1)
-        
+
         cosine_sim_matrix = cosine_similarity(query_embeddings_flat, source_embeddings_flat)
         print(cosine_sim_matrix.shape)
         return cosine_sim_matrix
@@ -178,9 +178,9 @@ class EnhancedRetriever:
         df = pd.DataFrame(
             {
                 'query_diff': diffs,
-                'query_ast_seq': ast_seqs, 
+                'query_ast_seq': ast_seqs,
                 'retrieved_diff': most_similar_diffs,
-                'retrieved_ast_seq': most_similar_ast_seq, 
+                'retrieved_ast_seq': most_similar_ast_seq,
                 'retrieved_message': most_similar_messages
             }
         )
@@ -231,7 +231,8 @@ class EnhancedRetriever:
                 most_similar_index = max_index
 
             most_similar_diffs.append(most_similar_diff)
-            most_similar_messages.append(self.source_data['message'][most_similar_index] if most_similar_index != -1 else "")
+            most_similar_messages.append(
+                self.source_data['message'][most_similar_index] if most_similar_index != -1 else "")
 
         df = pd.DataFrame(
             {
@@ -245,60 +246,66 @@ class EnhancedRetriever:
 
         return df
 
+
 if __name__ == '__main__':
-    # 测试数据
-    test_data = {
-        'diff': [
-            'This is the first diff',
-            'This is the second diff',
-            'This is the third diff',
-            'This is the fourth diff'
-        ],
-        'ast_seq': [
-            'AST1', 'AST2', 'AST3', 'AST4'
-        ],
-        'feature_vector': [
-            [[0.4,0.5,0.6],[0.4,0.5,0.6],[0.4,0.5,0.6]], [[0.7,0.8,0.9],[0.7,0.8,0.9],[0.7,0.8,0.9]], [[0.7,0.8,0.9],[0.7,0.8,0.9],[0.7,0.8,0.9]], [[1.0,1.1,1.2],[1.0,1.1,1.2],[1.0,1.1,1.2]]
-        ],
-        'message': [
-            'Message1', 'Message2', 'Message3', 'Message4'
-        ]
-    }
+    # # 测试数据
+    # test_data = {
+    #     'diff': [
+    #         'This is the first diff/////////////////////////////////////////////',
+    #         'This is the second diff',
+    #         'This is the third diff',
+    #         'This is the fourth diff'
+    #     ],
+    #     'ast_seq': [
+    #         'AST1///////////////////////////', 'AST2', 'AST3', 'AST4'
+    #     ],
+    #     'feature_vector': [
+    #         [[0.4, 0.5, 0.6], [0.4, 0.5, 0.6], [0.4, 0.5, 0.6]], [[0.7, 0.8, 0.9], [0.7, 0.8, 0.9], [0.7, 0.8, 0.9]],
+    #         [[0.7, 0.8, 0.9], [0.7, 0.8, 0.9], [0.7, 0.8, 0.9]], [[1.0, 1.1, 1.2], [1.0, 1.1, 1.2], [1.0, 1.1, 1.2]]
+    #     ],
+    #     'message': [
+    #         'Message1/////////////////////////////', 'Message2', 'Message3', 'Message4'
+    #     ]
+    # }
+    #
+    # # 将测试数据保存为 CSV 文件
+    # test_csv_file = 'test_data.csv'
+    # pd.DataFrame(test_data).to_csv(test_csv_file, index=False)
+    #
+    # # 创建 EnhancedRetriever 实例
+    # index_dir = 'test_index'
+    # retriever = EnhancedRetriever(test_csv_file, index_dir=index_dir)
+    #
+    # # 假设你已经生成了查询嵌入向量
+    # query_embeddings = np.array([
+    #     [[0.7, 0.8, 0.9], [0.7, 0.8, 0.9], [0.7, 0.8, 0.9]], [[0.7, 0.8, 0.9], [0.7, 0.8, 0.9], [0.7, 0.8, 0.9]],
+    #     [[1.0, 1.1, 1.2], [1.0, 1.1, 1.2], [1.0, 1.1, 1.2]]
+    # ])
+    #
+    # # 测试 BM25 检索和余弦相似度检索
+    # query_diffs = [
+    #     'This is the first diff',
+    #     'This is the second diff',
+    #     'This is a new diff'
+    # ]
+    #
+    # query_ast_seqs = [
+    #     'AST1',
+    #     'AST2',
+    #     'AST5'
+    # ]
+    #
+    # # 计算 BM25 得分矩阵
+    # bm25_scores_matrix = retriever.calculate_bm25(query_diffs, query_ast_seqs)
+    #
+    # # 打印 BM25 得分矩阵
+    # print("BM25 Scores Matrix:")
+    # print(bm25_scores_matrix)
+    #
+    # # 执行检索
+    # results = retriever.retrieve(query_diffs, query_ast_seqs, query_embeddings, bm25=True, cosine=True)
+    # print("Retrieval Results:")
+    # print(results)
 
-    # 将测试数据保存为 CSV 文件
-    test_csv_file = 'test_data.csv'
-    pd.DataFrame(test_data).to_csv(test_csv_file, index=False)
-
-    # 创建 EnhancedRetriever 实例
-    index_dir = 'test_index'
-    retriever = EnhancedRetriever(test_csv_file, index_dir=index_dir)
-
-    # 假设你已经生成了查询嵌入向量
-    query_embeddings = np.array([
-        [[0.7,0.8,0.9],[0.7,0.8,0.9],[0.7,0.8,0.9]], [[0.7,0.8,0.9],[0.7,0.8,0.9],[0.7,0.8,0.9]], [[1.0,1.1,1.2],[1.0,1.1,1.2],[1.0,1.1,1.2]]
-    ])
-
-    # 测试 BM25 检索和余弦相似度检索
-    query_diffs = [
-        'This is the first diff',
-        'This is the second diff',
-        'This is a new diff'
-    ]
-
-    query_ast_seqs = [
-        'AST1',
-        'AST2',
-        'AST5'
-    ]
-
-    # 计算 BM25 得分矩阵
-    bm25_scores_matrix = retriever.calculate_bm25(query_diffs, query_ast_seqs)
-
-    # 打印 BM25 得分矩阵
-    print("BM25 Scores Matrix:")
-    print(bm25_scores_matrix)
-
-    # 执行检索
-    results = retriever.retrieve(query_diffs, query_ast_seqs, query_embeddings, bm25=True, cosine=True)
-    print("Retrieval Results:")
-    print(results)
+    from config import DATASET_PATH
+    Retriever = EnhancedRetriever(os.path.join(DATASET_PATH, 'splitted_data/test.csv'), index_dir='data/index')
